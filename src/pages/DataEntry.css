@@ -1,0 +1,406 @@
+.data-entry {
+    max-width: 1200px;
+    margin: 0 auto;
+    animation: fadeIn 0.5s ease-out;
+}
+
+/* ===================================
+   HEADER
+   =================================== */
+
+.data-entry-header {
+    text-align: center;
+    margin-bottom: var(--spacing-2xl);
+    animation: slideDown 0.5s ease-out;
+}
+
+.data-entry-header h1 {
+    margin-bottom: var(--spacing-sm);
+}
+
+.data-entry-header p {
+    color: var(--text-tertiary);
+    font-size: 1.125rem;
+}
+
+/* ===================================
+   PROGRESS STEPS
+   =================================== */
+
+.progress-steps {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: var(--spacing-3xl);
+    padding: var(--spacing-xl);
+}
+
+.progress-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-sm);
+    position: relative;
+}
+
+.step-number {
+    width: 50px;
+    height: 50px;
+    border-radius: var(--radius-full);
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px solid var(--glass-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1.125rem;
+    color: var(--text-tertiary);
+    transition: all var(--transition-base);
+}
+
+.progress-step.active .step-number {
+    background: linear-gradient(135deg, var(--primary-600), var(--secondary-600));
+    border-color: transparent;
+    color: white;
+    box-shadow: var(--shadow-glow);
+    transform: scale(1.1);
+}
+
+.progress-step.completed .step-number {
+    background: var(--success-500);
+    border-color: transparent;
+    color: white;
+}
+
+.progress-step.completed .step-number::after {
+    content: '✓';
+}
+
+.step-label {
+    font-size: 0.875rem;
+    color: var(--text-tertiary);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    transition: color var(--transition-base);
+}
+
+.progress-step.active .step-label {
+    color: var(--primary-400);
+}
+
+.progress-line {
+    width: 100px;
+    height: 2px;
+    background: var(--glass-border);
+    margin: 0 var(--spacing-md);
+    position: relative;
+    top: -12px;
+}
+
+/* ===================================
+   STEP CONTENT
+   =================================== */
+
+.step-content {
+    animation: fadeIn 0.4s ease-out;
+}
+
+.step-content h2 {
+    margin-bottom: var(--spacing-sm);
+    text-align: center;
+}
+
+.step-description {
+    text-align: center;
+    color: var(--text-tertiary);
+    margin-bottom: var(--spacing-2xl);
+}
+
+.step-description strong {
+    color: var(--primary-400);
+}
+
+/* ===================================
+   POS SELECTION
+   =================================== */
+
+.pos-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: var(--spacing-lg);
+    margin-top: var(--spacing-xl);
+}
+
+.pos-card {
+    padding: var(--spacing-xl);
+    cursor: pointer;
+    position: relative;
+    transition: all var(--transition-base);
+}
+
+.pos-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-2xl), var(--shadow-glow);
+}
+
+.pos-icon {
+    font-size: 3rem;
+    margin-bottom: var(--spacing-md);
+    text-align: center;
+}
+
+.pos-card h3 {
+    font-size: 1.25rem;
+    margin-bottom: var(--spacing-md);
+    text-align: center;
+    color: var(--text-primary);
+}
+
+.pos-details {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
+}
+
+.pos-detail {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.875rem;
+}
+
+.pos-detail .label {
+    color: var(--text-tertiary);
+}
+
+.pos-detail .value {
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.pos-arrow {
+    text-align: center;
+    font-size: 1.5rem;
+    color: var(--primary-400);
+    opacity: 0;
+    transform: translateX(-10px);
+    transition: all var(--transition-base);
+}
+
+.pos-card:hover .pos-arrow {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+/* ===================================
+   DATA ENTRY
+   =================================== */
+
+.entry-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: var(--spacing-xl);
+}
+
+.date-selector {
+    padding: var(--spacing-xl);
+    margin-bottom: var(--spacing-xl);
+}
+
+.date-note {
+    font-size: 0.875rem;
+    color: var(--text-tertiary);
+    margin-top: var(--spacing-sm);
+    font-style: italic;
+}
+
+.sales-types-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-xl);
+}
+
+.sales-type-card {
+    padding: var(--spacing-xl);
+}
+
+.sales-type-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-lg);
+}
+
+.sales-type-header h3 {
+    font-size: 1.125rem;
+    color: var(--text-primary);
+}
+
+.required {
+    color: var(--error-400);
+    margin-left: var(--spacing-xs);
+}
+
+/* ===================================
+   REVIEW
+   =================================== */
+
+.review-section {
+    padding: var(--spacing-xl);
+    margin-bottom: var(--spacing-xl);
+}
+
+.review-section h3 {
+    font-size: 1.25rem;
+    margin-bottom: var(--spacing-lg);
+    color: var(--text-primary);
+}
+
+.review-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: var(--spacing-lg);
+}
+
+.review-item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.review-label {
+    font-size: 0.875rem;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+}
+
+.review-value {
+    font-size: 1rem;
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.review-table {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.review-row {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: var(--spacing-md);
+    align-items: center;
+    padding: var(--spacing-md);
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: var(--radius-md);
+}
+
+.review-type {
+    color: var(--text-secondary);
+}
+
+.review-amount {
+    color: var(--success-400);
+    font-weight: 600;
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.125rem;
+}
+
+.review-attachment {
+    font-size: 0.875rem;
+    color: var(--text-tertiary);
+}
+
+.review-total {
+    background: rgba(139, 92, 246, 0.1);
+    border: 1px solid var(--primary-500);
+    margin-top: var(--spacing-md);
+}
+
+.review-total .review-amount {
+    font-size: 1.5rem;
+    color: var(--primary-400);
+}
+
+/* ===================================
+   ACTIONS
+   =================================== */
+
+.entry-actions {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-2xl);
+}
+
+/* ===================================
+   EMPTY STATE
+   =================================== */
+
+.empty-state {
+    text-align: center;
+    padding: var(--spacing-3xl);
+}
+
+.empty-icon {
+    font-size: 4rem;
+    margin-bottom: var(--spacing-lg);
+    opacity: 0.5;
+}
+
+.empty-state h3 {
+    font-size: 1.5rem;
+    margin-bottom: var(--spacing-sm);
+    color: var(--text-secondary);
+}
+
+.empty-state p {
+    color: var(--text-tertiary);
+}
+
+/* ===================================
+   RESPONSIVE
+   =================================== */
+
+@media (max-width: 768px) {
+    .progress-steps {
+        padding: var(--spacing-md);
+    }
+
+    .progress-line {
+        width: 50px;
+    }
+
+    .step-label {
+        font-size: 0.75rem;
+    }
+
+    .pos-grid,
+    .sales-types-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .entry-header {
+        flex-direction: column;
+        gap: var(--spacing-md);
+    }
+
+    .entry-actions {
+        flex-direction: column;
+    }
+
+    .entry-actions button {
+        width: 100%;
+    }
+
+    .review-row {
+        grid-template-columns: 1fr;
+        text-align: center;
+    }
+}
