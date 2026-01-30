@@ -28,7 +28,7 @@ function Dashboard() {
             ]);
 
             setStats(statsRes.data);
-            setRecentEntries(entriesRes.data);
+            setRecentEntries(entriesRes.data || []);
         } catch (error) {
             console.error('Error fetching dashboard data:', error);
         } finally {
@@ -41,83 +41,50 @@ function Dashboard() {
             style: 'currency',
             currency: 'INR',
             maximumFractionDigits: 0,
-        }).format(amount);
+        }).format(amount || 0);
     };
 
     const formatDate = (dateString) => {
         return new Date(dateString).toLocaleDateString('en-IN', {
             day: 'numeric',
             month: 'short',
-            year: 'numeric',
         });
     };
 
     const statCards = [
-        {
-            title: "Today's Sales",
-            value: formatCurrency(stats.todaySales),
-            icon: '💰',
-            gradient: 'linear-gradient(135deg, var(--primary-600), var(--primary-500))',
-            change: '+12.5%',
-            changeType: 'positive',
-        },
-        {
-            title: 'This Week',
-            value: formatCurrency(stats.weekSales),
-            icon: '📊',
-            gradient: 'linear-gradient(135deg, var(--secondary-600), var(--secondary-500))',
-            change: '+8.2%',
-            changeType: 'positive',
-        },
-        {
-            title: 'This Month',
-            value: formatCurrency(stats.monthSales),
-            icon: '📈',
-            gradient: 'linear-gradient(135deg, var(--accent-500), var(--pink-500))',
-            change: '+15.3%',
-            changeType: 'positive',
-        },
-        {
-            title: 'Pending Submissions',
-            value: stats.pendingSubmissions,
-            icon: '⏳',
-            gradient: 'linear-gradient(135deg, var(--warning-500), var(--warning-400))',
-            change: user?.role !== 'regular_user' ? 'View All' : null,
-            changeType: 'neutral',
-        },
+        { title: "Today", value: formatCurrency(stats.todaySales), icon: '💰' },
+        { title: 'This Week', value: formatCurrency(stats.weekSales), icon: '📊' },
+        { title: 'This Month', value: formatCurrency(stats.monthSales), icon: '📈' },
+        { title: 'Pending', value: stats.pendingSubmissions || 0, icon: '⏳' },
     ];
 
     const quickActions = [
         {
-            title: 'Enter Sales Data',
-            description: 'Add today\'s sales information',
+            title: 'Enter Sales',
+            description: 'Add sales data',
             icon: '📝',
             action: () => navigate('/data-entry'),
-            color: 'var(--primary-500)',
             roles: ['regular_user', 'administrator', 'super_admin'],
         },
         {
-            title: 'View Reports',
-            description: 'Analyze sales trends and patterns',
+            title: 'Reports',
+            description: 'View analytics',
             icon: '📊',
             action: () => navigate('/reports'),
-            color: 'var(--secondary-500)',
             roles: ['administrator', 'super_admin'],
         },
         {
-            title: 'Track Submissions',
-            description: 'Monitor daily submission status',
+            title: 'Submissions',
+            description: 'Track status',
             icon: '✅',
             action: () => navigate('/submission-tracker'),
-            color: 'var(--accent-500)',
             roles: ['administrator', 'super_admin'],
         },
         {
-            title: 'Admin Panel',
-            description: 'Manage system configuration',
+            title: 'Admin',
+            description: 'System settings',
             icon: '⚙️',
             action: () => navigate('/admin'),
-            color: 'var(--pink-500)',
             roles: ['super_admin'],
         },
     ];
@@ -130,65 +97,50 @@ function Dashboard() {
         return (
             <div className="dashboard-loading">
                 <div className="loading-spinner"></div>
-                <p>Loading dashboard...</p>
+                <p>Loading...</p>
             </div>
         );
     }
 
     return (
         <div className="dashboard">
-            <div className="dashboard-header">
-                <div>
-                    <h1>Welcome back, {user?.name}! 👋</h1>
-                    <p>Here's what's happening with your sales today</p>
+            {/* Hero */}
+            <div className="dashboard-hero">
+                <div className="hero-content">
+                    <h1>Welcome, {user?.name}</h1>
+                    <p>Here's your sales overview</p>
                 </div>
-                <button className="btn btn-primary" onClick={() => navigate('/data-entry')}>
-                    <span>➕</span>
-                    <span>New Entry</span>
-                </button>
+                <div className="hero-actions">
+                    <button className="btn btn-primary" onClick={() => navigate('/data-entry')}>
+                        + New Entry
+                    </button>
+                </div>
             </div>
 
-            {/* Stats Grid */}
+            {/* Stats */}
             <div className="stats-grid">
                 {statCards.map((stat, index) => (
-                    <div
-                        key={index}
-                        className="stat-card glass-card"
-                        style={{ animationDelay: `${index * 0.1}s` }}
-                    >
-                        <div className="stat-icon" style={{ background: stat.gradient }}>
-                            {stat.icon}
+                    <div key={index} className="stat-card">
+                        <div className="stat-header">
+                            <span className="stat-icon">{stat.icon}</span>
+                            <span className="stat-label">{stat.title}</span>
                         </div>
-                        <div className="stat-content">
-                            <div className="stat-title">{stat.title}</div>
-                            <div className="stat-value">{stat.value}</div>
-                            {stat.change && (
-                                <div className={`stat-change ${stat.changeType}`}>
-                                    {stat.changeType === 'positive' && '↗'}
-                                    {stat.change}
-                                </div>
-                            )}
-                        </div>
+                        <div className="stat-value">{stat.value}</div>
                     </div>
                 ))}
             </div>
 
             {/* Quick Actions */}
-            <div className="section">
+            <div className="dashboard-section">
                 <h2 className="section-title">Quick Actions</h2>
                 <div className="quick-actions-grid">
                     {filteredActions.map((action, index) => (
-                        <div
-                            key={index}
-                            className="action-card glass-card"
-                            onClick={action.action}
-                            style={{ animationDelay: `${index * 0.1}s` }}
-                        >
-                            <div className="action-icon" style={{ color: action.color }}>
-                                {action.icon}
+                        <div key={index} className="action-card" onClick={action.action}>
+                            <div className="action-icon">{action.icon}</div>
+                            <div className="action-content">
+                                <h3>{action.title}</h3>
+                                <p>{action.description}</p>
                             </div>
-                            <h3>{action.title}</h3>
-                            <p>{action.description}</p>
                             <div className="action-arrow">→</div>
                         </div>
                     ))}
@@ -197,11 +149,11 @@ function Dashboard() {
 
             {/* Recent Entries */}
             {user?.role !== 'regular_user' && (
-                <div className="section">
+                <div className="dashboard-section">
                     <div className="section-header">
                         <h2 className="section-title">Recent Entries</h2>
                         <button className="btn btn-ghost btn-sm" onClick={() => navigate('/reports')}>
-                            View All →
+                            View All
                         </button>
                     </div>
 
@@ -213,19 +165,19 @@ function Dashboard() {
                                     <th>POS</th>
                                     <th>Location</th>
                                     <th>User</th>
-                                    <th>Total Amount</th>
+                                    <th>Amount</th>
                                     <th>Status</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {recentEntries.length > 0 ? (
+                                {Array.isArray(recentEntries) && recentEntries.length > 0 ? (
                                     recentEntries.map((entry, index) => (
                                         <tr key={index}>
                                             <td>{formatDate(entry.entry_date)}</td>
                                             <td>{entry.pos_name}</td>
                                             <td>{entry.location_name}</td>
                                             <td>{entry.user_name}</td>
-                                            <td className="amount">{formatCurrency(entry.total_amount)}</td>
+                                            <td className="amount-cell">{formatCurrency(entry.total_amount)}</td>
                                             <td>
                                                 <span className={`badge badge-${entry.status === 'submitted' ? 'success' : 'warning'}`}>
                                                     {entry.status}
@@ -235,8 +187,11 @@ function Dashboard() {
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan="6" style={{ textAlign: 'center', padding: '2rem' }}>
-                                            No entries found
+                                        <td colSpan="6">
+                                            <div className="empty-state">
+                                                <div className="empty-state-icon">📭</div>
+                                                <div className="empty-state-title">No entries yet</div>
+                                            </div>
                                         </td>
                                     </tr>
                                 )}

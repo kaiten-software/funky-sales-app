@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import './AdminPanel.css';
 
@@ -9,6 +9,11 @@ function AdminPanel() {
     const [showModal, setShowModal] = useState(false);
     const [formData, setFormData] = useState({});
     const [editingId, setEditingId] = useState(null);
+
+    // Sorting and filtering state
+    const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+    const [filters, setFilters] = useState({});
+    const [searchTerm, setSearchTerm] = useState('');
 
     // Dropdown options
     const [cities, setCities] = useState([]);
@@ -25,6 +30,10 @@ function AdminPanel() {
     useEffect(() => {
         fetchData();
         fetchDropdownData();
+        // Reset filters when tab changes
+        setFilters({});
+        setSearchTerm('');
+        setSortConfig({ key: null, direction: 'asc' });
     }, [activeTab]);
 
     const fetchDropdownData = async () => {
@@ -33,10 +42,12 @@ function AdminPanel() {
                 axios.get('/admin/cities'),
                 axios.get('/admin/locations')
             ]);
-            setCities(citiesRes.data);
-            setLocations(locationsRes.data);
+            setCities(citiesRes.data || []);
+            setLocations(locationsRes.data || []);
         } catch (error) {
             console.error('Error fetching dropdown data:', error);
+            setCities([]);
+            setLocations([]);
         }
     };
 
@@ -44,7 +55,7 @@ function AdminPanel() {
         setLoading(true);
         try {
             const response = await axios.get(`/admin/${activeTab}`);
-            setData(response.data);
+            setData(response.data || []);
         } catch (error) {
             console.error('Error fetching data:', error);
             setData([]);
@@ -52,6 +63,63 @@ function AdminPanel() {
             setLoading(false);
         }
     };
+
+    // Sorting logic
+    const handleSort = (key) => {
+        setSortConfig(prev => ({
+            key,
+            direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+        }));
+    };
+
+    const getSortIcon = (key) => {
+        if (sortConfig.key !== key) return '↕';
+        return sortConfig.direction === 'asc' ? '↑' : '↓';
+    };
+
+    // Filtered and sorted data
+    const processedData = useMemo(() => {
+        if (!Array.isArray(data)) return [];
+
+        let result = [...data];
+
+        // Apply search filter
+        if (searchTerm) {
+            result = result.filter(item => {
+                const searchLower = searchTerm.toLowerCase();
+                return Object.values(item).some(value =>
+                    String(value).toLowerCase().includes(searchLower)
+                );
+            });
+        }
+
+        // Apply column filters
+        Object.entries(filters).forEach(([key, value]) => {
+            if (value) {
+                result = result.filter(item => {
+                    const itemValue = String(item[key] || '').toLowerCase();
+                    return itemValue.includes(value.toLowerCase());
+                });
+            }
+        });
+
+        // Apply sorting
+        if (sortConfig.key) {
+            result.sort((a, b) => {
+                const aVal = a[sortConfig.key] ?? '';
+                const bVal = b[sortConfig.key] ?? '';
+
+                if (typeof aVal === 'number' && typeof bVal === 'number') {
+                    return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal;
+                }
+
+                const comparison = String(aVal).localeCompare(String(bVal));
+                return sortConfig.direction === 'asc' ? comparison : -comparison;
+            });
+        }
+
+        return result;
+    }, [data, searchTerm, filters, sortConfig]);
 
     const handleAddNew = () => {
         setEditingId(null);
@@ -98,6 +166,11 @@ function AdminPanel() {
     const getFilteredLocations = () => {
         if (!formData.city_id) return locations;
         return locations.filter(loc => loc.city_id === parseInt(formData.city_id));
+    };
+
+    const clearFilters = () => {
+        setFilters({});
+        setSearchTerm('');
     };
 
     const renderForm = () => {
@@ -219,9 +292,7 @@ function AdminPanel() {
                                 ))}
                             </select>
                             {!formData.city_id && (
-                                <small style={{ color: 'var(--text-tertiary)', marginTop: '0.25rem', display: 'block' }}>
-                                    Please select a city first
-                                </small>
+                                <small className="text-muted">Please select a city first</small>
                             )}
                         </div>
                         <div className="form-group">
@@ -320,7 +391,7 @@ function AdminPanel() {
                         </div>
                         <div className="form-group">
                             <label className="form-label">Attachment Settings</label>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.5rem' }}>
+                            <div className="checkbox-group">
                                 <label className="checkbox-label">
                                     <input
                                         type="checkbox"
@@ -363,226 +434,242 @@ function AdminPanel() {
         }
     };
 
-    const renderTableHeaders = () => {
+    const getTableConfig = () => {
         switch (activeTab) {
             case 'cities':
-                return (
-                    <tr>
-                        <th>ID</th>
-                        <th>Name</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                );
+                return {
+                    columns: [
+                        { key: 'id', label: 'ID', sortable: true },
+                        { key: 'name', label: 'Name', sortable: true },
+                        { key: 'status', label: 'Status', sortable: true },
+                    ]
+                };
             case 'locations':
-                return (
-                    <tr>
-                        <th>ID</th>
-                        <th>Name</th>
-                        <th>City</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                );
+                return {
+                    columns: [
+                        { key: 'id', label: 'ID', sortable: true },
+                        { key: 'name', label: 'Name', sortable: true },
+                        { key: 'city_name', label: 'City', sortable: true },
+                        { key: 'status', label: 'Status', sortable: true },
+                    ]
+                };
             case 'pos':
-                return (
-                    <tr>
-                        <th>ID</th>
-                        <th>Name</th>
-                        <th>Location</th>
-                        <th>City</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                );
+                return {
+                    columns: [
+                        { key: 'id', label: 'ID', sortable: true },
+                        { key: 'name', label: 'Name', sortable: true },
+                        { key: 'location_name', label: 'Location', sortable: true },
+                        { key: 'city_name', label: 'City', sortable: true },
+                        { key: 'status', label: 'Status', sortable: true },
+                    ]
+                };
             case 'users':
-                return (
-                    <tr>
-                        <th>ID</th>
-                        <th>Name</th>
-                        <th>Email</th>
-                        <th>Role</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                );
+                return {
+                    columns: [
+                        { key: 'id', label: 'ID', sortable: true },
+                        { key: 'name', label: 'Name', sortable: true },
+                        { key: 'email', label: 'Email', sortable: true },
+                        { key: 'role', label: 'Role', sortable: true },
+                        { key: 'status', label: 'Status', sortable: true },
+                    ]
+                };
             case 'sales-types':
-                return (
-                    <tr>
-                        <th>ID</th>
-                        <th>Name</th>
-                        <th>Attachment</th>
-                        <th>Required</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                );
+                return {
+                    columns: [
+                        { key: 'id', label: 'ID', sortable: true },
+                        { key: 'name', label: 'Name', sortable: true },
+                        { key: 'attachment_applicable', label: 'Attachment', sortable: true },
+                        { key: 'attachment_required', label: 'Required', sortable: true },
+                        { key: 'status', label: 'Status', sortable: true },
+                    ]
+                };
             default:
-                return null;
+                return { columns: [] };
         }
     };
 
-    const renderTableRow = (item) => {
-        switch (activeTab) {
-            case 'cities':
-                return (
-                    <tr key={item.id}>
-                        <td>{item.id}</td>
-                        <td><strong>{item.name}</strong></td>
-                        <td>
-                            <span className={`badge badge-${item.status === 'active' ? 'success' : 'error'}`}>
-                                {item.status}
-                            </span>
-                        </td>
-                        <td className="actions-cell">
-                            <button className="btn btn-ghost btn-sm" onClick={() => handleEdit(item)}>✏️ Edit</button>
-                            <button className="btn btn-ghost btn-sm btn-danger" onClick={() => handleDelete(item.id)}>🗑️ Delete</button>
-                        </td>
-                    </tr>
-                );
-            case 'locations':
-                return (
-                    <tr key={item.id}>
-                        <td>{item.id}</td>
-                        <td><strong>{item.name}</strong></td>
-                        <td>{item.city_name}</td>
-                        <td>
-                            <span className={`badge badge-${item.status === 'active' ? 'success' : 'error'}`}>
-                                {item.status}
-                            </span>
-                        </td>
-                        <td className="actions-cell">
-                            <button className="btn btn-ghost btn-sm" onClick={() => handleEdit(item)}>✏️ Edit</button>
-                            <button className="btn btn-ghost btn-sm btn-danger" onClick={() => handleDelete(item.id)}>🗑️ Delete</button>
-                        </td>
-                    </tr>
-                );
-            case 'pos':
-                return (
-                    <tr key={item.id}>
-                        <td>{item.id}</td>
-                        <td><strong>{item.name}</strong></td>
-                        <td>{item.location_name}</td>
-                        <td>{item.city_name}</td>
-                        <td>
-                            <span className={`badge badge-${item.status === 'active' ? 'success' : 'error'}`}>
-                                {item.status}
-                            </span>
-                        </td>
-                        <td className="actions-cell">
-                            <button className="btn btn-ghost btn-sm" onClick={() => handleEdit(item)}>✏️ Edit</button>
-                            <button className="btn btn-ghost btn-sm btn-danger" onClick={() => handleDelete(item.id)}>🗑️ Delete</button>
-                        </td>
-                    </tr>
-                );
-            case 'users':
-                return (
-                    <tr key={item.id}>
-                        <td>{item.id}</td>
-                        <td><strong>{item.name}</strong></td>
-                        <td>{item.email}</td>
-                        <td>
-                            <span className="badge badge-primary">
-                                {item.role.replace(/_/g, ' ')}
-                            </span>
-                        </td>
-                        <td>
-                            <span className={`badge badge-${item.status === 'active' ? 'success' : item.status === 'pending' ? 'warning' : 'error'}`}>
-                                {item.status}
-                            </span>
-                        </td>
-                        <td className="actions-cell">
-                            <button className="btn btn-ghost btn-sm" onClick={() => handleEdit(item)}>✏️ Edit</button>
-                            <button className="btn btn-ghost btn-sm btn-danger" onClick={() => handleDelete(item.id)}>🗑️ Delete</button>
-                        </td>
-                    </tr>
-                );
-            case 'sales-types':
-                return (
-                    <tr key={item.id}>
-                        <td>{item.id}</td>
-                        <td><strong>{item.name}</strong></td>
-                        <td>
-                            <span className={`badge badge-${item.attachment_applicable ? 'success' : 'secondary'}`}>
-                                {item.attachment_applicable ? 'Yes' : 'No'}
-                            </span>
-                        </td>
-                        <td>
-                            <span className={`badge badge-${item.attachment_required ? 'warning' : 'secondary'}`}>
-                                {item.attachment_required ? 'Yes' : 'No'}
-                            </span>
-                        </td>
-                        <td>
-                            <span className={`badge badge-${item.status === 'active' ? 'success' : 'error'}`}>
-                                {item.status}
-                            </span>
-                        </td>
-                        <td className="actions-cell">
-                            <button className="btn btn-ghost btn-sm" onClick={() => handleEdit(item)}>✏️ Edit</button>
-                            <button className="btn btn-ghost btn-sm btn-danger" onClick={() => handleDelete(item.id)}>🗑️ Delete</button>
-                        </td>
-                    </tr>
-                );
-            default:
-                return null;
+    const renderCellContent = (item, key) => {
+        const value = item[key];
+
+        // Handle status fields
+        if (key === 'status') {
+            const statusClass = value === 'active' ? 'success' :
+                value === 'pending' ? 'warning' : 'error';
+            return <span className={`badge badge-${statusClass}`}>{value}</span>;
         }
+
+        // Handle role field
+        if (key === 'role') {
+            return (
+                <span className="badge badge-primary">
+                    {String(value || '').replace(/_/g, ' ')}
+                </span>
+            );
+        }
+
+        // Handle boolean fields
+        if (key === 'attachment_applicable' || key === 'attachment_required') {
+            return (
+                <span className={`badge badge-${value ? 'success' : 'secondary'}`}>
+                    {value ? 'Yes' : 'No'}
+                </span>
+            );
+        }
+
+        // Handle name field with bold
+        if (key === 'name') {
+            return <strong>{value}</strong>;
+        }
+
+        return value;
     };
+
+    const tableConfig = getTableConfig();
 
     return (
         <div className="admin-panel">
-            <div className="admin-header">
-                <h1>⚙️ Admin Panel</h1>
-                <p>Manage system configuration and settings</p>
+            {/* Page Header */}
+            <div className="page-header">
+                <div>
+                    <h1 className="page-title">Admin Panel</h1>
+                    <p className="page-description">Manage system configuration and settings</p>
+                </div>
             </div>
 
-            <div className="admin-tabs">
+            {/* Tabs */}
+            <div className="tabs">
                 {tabs.map(tab => (
                     <button
                         key={tab.id}
-                        className={`admin-tab ${activeTab === tab.id ? 'active' : ''}`}
+                        className={`tab ${activeTab === tab.id ? 'active' : ''}`}
                         onClick={() => setActiveTab(tab.id)}
                     >
                         <span className="tab-icon">{tab.icon}</span>
-                        <span className="tab-label">{tab.label}</span>
+                        <span>{tab.label}</span>
                     </button>
                 ))}
             </div>
 
-            <div className="admin-content glass-card">
-                <div className="content-header">
-                    <h2>{tabs.find(t => t.id === activeTab)?.label}</h2>
+            {/* Filters Bar */}
+            <div className="filters-bar">
+                <div className="filter-group">
+                    <label className="filter-label">Search:</label>
+                    <input
+                        type="text"
+                        className="form-input filter-input"
+                        placeholder="Search..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+                <div className="filter-group">
+                    <label className="filter-label">Status:</label>
+                    <select
+                        className="form-select filter-input"
+                        value={filters.status || ''}
+                        onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+                    >
+                        <option value="">All</option>
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                        {activeTab === 'users' && <option value="pending">Pending</option>}
+                        {activeTab === 'users' && <option value="disabled">Disabled</option>}
+                    </select>
+                </div>
+                {(searchTerm || Object.values(filters).some(v => v)) && (
+                    <button className="btn btn-ghost btn-sm filter-clear" onClick={clearFilters}>
+                        Clear Filters
+                    </button>
+                )}
+                <div style={{ marginLeft: 'auto' }}>
                     <button className="btn btn-primary" onClick={handleAddNew}>
-                        <span>➕</span>
-                        <span>Add New</span>
+                        + Add New
                     </button>
                 </div>
+            </div>
 
+            {/* Table */}
+            <div className="table-container">
                 {loading ? (
-                    <div style={{ textAlign: 'center', padding: '3rem' }}>
+                    <div className="empty-state">
                         <div className="loading-spinner"></div>
-                        <p style={{ marginTop: '1rem', color: 'var(--text-secondary)' }}>Loading...</p>
+                        <p style={{ marginTop: '1rem' }}>Loading...</p>
                     </div>
                 ) : (
-                    <div className="table-container">
-                        <table className="table">
-                            <thead>
-                                {renderTableHeaders()}
-                            </thead>
-                            <tbody>
-                                {data.length > 0 ? (
-                                    data.map(item => renderTableRow(item))
-                                ) : (
-                                    <tr>
-                                        <td colSpan="6" style={{ textAlign: 'center', padding: '2rem' }}>
-                                            No data found. Click "Add New" to create an entry.
+                    <table className="table">
+                        <thead>
+                            <tr>
+                                {tableConfig.columns.map(col => (
+                                    <th
+                                        key={col.key}
+                                        className={col.sortable ? 'sortable' : ''}
+                                        onClick={() => col.sortable && handleSort(col.key)}
+                                    >
+                                        {col.label}
+                                        {col.sortable && (
+                                            <span className={`sort-icon ${sortConfig.key === col.key ? 'sorted' : ''}`}>
+                                                {getSortIcon(col.key)}
+                                            </span>
+                                        )}
+                                    </th>
+                                ))}
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {processedData.length > 0 ? (
+                                processedData.map(item => (
+                                    <tr key={item.id}>
+                                        {tableConfig.columns.map(col => (
+                                            <td key={col.key}>
+                                                {renderCellContent(item, col.key)}
+                                            </td>
+                                        ))}
+                                        <td className="actions-cell">
+                                            <button
+                                                className="btn btn-ghost btn-sm btn-icon"
+                                                onClick={() => handleEdit(item)}
+                                                title="Edit"
+                                            >
+                                                ✏️
+                                            </button>
+                                            <button
+                                                className="btn btn-ghost btn-sm btn-icon"
+                                                onClick={() => handleDelete(item.id)}
+                                                title="Delete"
+                                                style={{ color: 'var(--error-500)' }}
+                                            >
+                                                🗑️
+                                            </button>
                                         </td>
                                     </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan={tableConfig.columns.length + 1}>
+                                        <div className="empty-state">
+                                            <div className="empty-state-icon">📭</div>
+                                            <div className="empty-state-title">No data found</div>
+                                            <div className="empty-state-description">
+                                                {searchTerm || Object.values(filters).some(v => v)
+                                                    ? 'Try adjusting your filters'
+                                                    : 'Click "Add New" to create an entry'}
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
                 )}
             </div>
+
+            {/* Results count */}
+            {!loading && processedData.length > 0 && (
+                <div className="text-muted" style={{ marginTop: '0.75rem', fontSize: '0.8125rem' }}>
+                    Showing {processedData.length} of {data.length} records
+                </div>
+            )}
 
             {/* Modal for Add/Edit */}
             {showModal && (
@@ -590,9 +677,9 @@ function AdminPanel() {
                     <div className="modal" onClick={(e) => e.stopPropagation()}>
                         <div className="modal-header">
                             <h3 className="modal-title">
-                                {editingId ? '✏️ Edit' : '➕ Add New'} {tabs.find(t => t.id === activeTab)?.label.slice(0, -1)}
+                                {editingId ? 'Edit' : 'Add New'} {tabs.find(t => t.id === activeTab)?.label.slice(0, -1) || 'Item'}
                             </h3>
-                            <button className="modal-close" onClick={() => setShowModal(false)}>
+                            <button type="button" className="modal-close" onClick={() => setShowModal(false)}>
                                 ×
                             </button>
                         </div>
@@ -600,7 +687,7 @@ function AdminPanel() {
                             <form onSubmit={handleSubmit}>
                                 {renderForm()}
                                 <div className="modal-footer">
-                                    <button type="button" className="btn btn-ghost" onClick={() => setShowModal(false)}>
+                                    <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>
                                         Cancel
                                     </button>
                                     <button type="submit" className="btn btn-primary">

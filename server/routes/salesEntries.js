@@ -88,4 +88,143 @@ router.post('/submit', authenticateToken, upload.any(), async (req, res) => {
     }
 });
 
+// Get single entry by ID (for super_admin edit)
+router.get('/entry/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // Only super_admin can access this
+        if (req.user.role !== 'super_admin') {
+            return res.status(403).json({ message: 'Access denied' });
+        }
+
+        // Get entry details
+        const [entries] = await db.query(
+            `SELECT se.id, se.pos_id, se.entry_date, se.user_id, se.status,
+                    p.name as pos_name, u.name as user_name
+             FROM sales_entries se
+             LEFT JOIN pos_terminals p ON se.pos_id = p.id
+             LEFT JOIN users u ON se.user_id = u.id
+             WHERE se.id = ?`,
+            [id]
+        );
+
+        if (entries.length === 0) {
+            return res.status(404).json({ message: 'Entry not found' });
+        }
+
+        // Get sales data for this entry
+        const [salesData] = await db.query(
+            `SELECT sed.sales_type_id, sed.amount, sed.attachment_path, st.name as sales_type_name
+             FROM sales_entry_details sed
+             LEFT JOIN sales_types st ON sed.sales_type_id = st.id
+             WHERE sed.sales_entry_id = ?`,
+            [id]
+        );
+
+        res.json({
+            ...entries[0],
+            sales_data: salesData
+        });
+
+    } catch (error) {
+        console.error('Error fetching entry:', error);
+        res.status(500).json({ message: 'Error fetching entry' });
+    }
+});
+
+// View entry details (for admin & super_admin - read only)
+router.get('/view/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // Admin and super_admin can view
+        if (req.user.role !== 'administrator' && req.user.role !== 'super_admin') {
+            return res.status(403).json({ message: 'Access denied' });
+        }
+
+        // Get entry details
+        const [entries] = await db.query(
+            `SELECT se.id, se.pos_id, se.entry_date, se.user_id, se.status, se.submitted_at,
+                    p.name as pos_name, u.name as user_name
+             FROM sales_entries se
+             LEFT JOIN pos_terminals p ON se.pos_id = p.id
+             LEFT JOIN users u ON se.user_id = u.id
+             WHERE se.id = ?`,
+            [id]
+        );
+
+        if (entries.length === 0) {
+            return res.status(404).json({ message: 'Entry not found' });
+        }
+
+        // Get sales data for this entry
+        const [salesData] = await db.query(
+            `SELECT sed.sales_type_id, sed.amount, sed.attachment_path, st.name as sales_type_name
+             FROM sales_entry_details sed
+             LEFT JOIN sales_types st ON sed.sales_type_id = st.id
+             WHERE sed.sales_entry_id = ?`,
+            [id]
+        );
+
+        res.json({
+            ...entries[0],
+            sales_data: salesData
+        });
+
+    } catch (error) {
+        console.error('Error fetching entry:', error);
+        res.status(500).json({ message: 'Error fetching entry' });
+    }
+});
+
+// Update entry (super_admin only)
+router.put('/update/:id', authenticateToken, async (req, res) => {
+    const connection = await db.getConnection();
+
+    try {
+        const { id } = req.params;
+        const { entries } = req.body;
+
+        // Only super_admin can update entries
+        if (req.user.role !== 'super_admin') {
+            await connection.rollback();
+            return res.status(403).json({ message: 'Access denied' });
+        }
+
+        await connection.beginTransaction();
+
+        // Verify entry exists
+        const [existing] = await connection.query(
+            'SELECT id FROM sales_entries WHERE id = ?',
+            [id]
+        );
+
+        if (existing.length === 0) {
+            await connection.rollback();
+            return res.status(404).json({ message: 'Entry not found' });
+        }
+
+        // Update each sales entry detail
+        for (const [typeId, amount] of Object.entries(entries)) {
+            await connection.query(
+                `UPDATE sales_entry_details 
+                 SET amount = ? 
+                 WHERE sales_entry_id = ? AND sales_type_id = ?`,
+                [parseFloat(amount) || 0, id, typeId]
+            );
+        }
+
+        await connection.commit();
+        res.json({ message: 'Entry updated successfully' });
+
+    } catch (error) {
+        await connection.rollback();
+        console.error('Error updating entry:', error);
+        res.status(500).json({ message: 'Error updating entry' });
+    } finally {
+        connection.release();
+    }
+});
+
 export default router;

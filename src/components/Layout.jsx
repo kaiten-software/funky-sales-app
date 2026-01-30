@@ -1,10 +1,13 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import './Layout.css';
 
 function Layout() {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
+    const [sidebarOpen, setSidebarOpen] = useState(false);
 
     const handleLogout = () => {
         logout();
@@ -23,56 +26,108 @@ function Layout() {
         item.roles.includes(user?.role)
     );
 
+    // Get current page title
+    const getCurrentPageTitle = () => {
+        const currentItem = navItems.find(item => location.pathname.startsWith(item.path));
+        return currentItem?.label || 'Dashboard';
+    };
+
+    const getInitials = (name) => {
+        if (!name) return 'U';
+        return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    };
+
+    const formatRole = (role) => {
+        if (!role) return 'User';
+        return role.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    };
+
     return (
         <div className="layout">
-            <aside className="sidebar">
+            {/* Mobile Sidebar Overlay */}
+            <div
+                className={`sidebar-overlay ${sidebarOpen ? 'visible' : ''}`}
+                onClick={() => setSidebarOpen(false)}
+            />
+
+            {/* Sidebar */}
+            <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
                 <div className="sidebar-header">
-                    <div className="logo">
-                        <div className="logo-icon">🎮</div>
-                        <div className="logo-text">
-                            <h2>PlayZone</h2>
-                            <p>Sales Tracker</p>
-                        </div>
+                    <div className="sidebar-logo">
+                        <div className="sidebar-logo-icon">💼</div>
+                        <span className="sidebar-logo-text">Funky Sales</span>
                     </div>
                 </div>
 
                 <nav className="sidebar-nav">
-                    {filteredNavItems.map((item) => (
-                        <NavLink
-                            key={item.path}
-                            to={item.path}
-                            className={({ isActive }) =>
-                                `nav-item ${isActive ? 'active' : ''}`
-                            }
-                        >
-                            <span className="nav-icon">{item.icon}</span>
-                            <span className="nav-label">{item.label}</span>
-                        </NavLink>
-                    ))}
+                    <div className="nav-section">
+                        <div className="nav-section-title">Main Menu</div>
+                        {filteredNavItems.map((item) => (
+                            <NavLink
+                                key={item.path}
+                                to={item.path}
+                                className={({ isActive }) =>
+                                    `nav-item ${isActive ? 'active' : ''}`
+                                }
+                                onClick={() => setSidebarOpen(false)}
+                            >
+                                <span className="nav-item-icon">{item.icon}</span>
+                                <span>{item.label}</span>
+                            </NavLink>
+                        ))}
+                    </div>
                 </nav>
 
                 <div className="sidebar-footer">
-                    <div className="user-info">
+                    <div className="user-menu">
                         <div className="user-avatar">
-                            {user?.name?.charAt(0).toUpperCase()}
+                            {getInitials(user?.name)}
                         </div>
-                        <div className="user-details">
-                            <div className="user-name">{user?.name}</div>
-                            <div className="user-role">
-                                {user?.role === 'super_admin' ? 'Super Admin' :
-                                    user?.role === 'administrator' ? 'Administrator' : 'User'}
-                            </div>
+                        <div className="user-info">
+                            <div className="user-name">{user?.name || 'User'}</div>
+                            <div className="user-role">{formatRole(user?.role)}</div>
                         </div>
+                        <button
+                            className="logout-btn"
+                            onClick={handleLogout}
+                            title="Logout"
+                        >
+                            ⏻
+                        </button>
                     </div>
-                    <button className="btn btn-ghost btn-sm w-full" onClick={handleLogout}>
-                        <span>🚪</span> Logout
-                    </button>
                 </div>
             </aside>
 
+            {/* Main Content */}
             <main className="main-content">
-                <Outlet />
+                <header className="content-header">
+                    <div className="breadcrumb">
+                        <span className="breadcrumb-current">{getCurrentPageTitle()}</span>
+                    </div>
+                    <div className="header-actions">
+                        <span className="text-muted" style={{ fontSize: '0.8125rem' }}>
+                            {new Date().toLocaleDateString('en-IN', {
+                                weekday: 'short',
+                                day: 'numeric',
+                                month: 'short',
+                                year: 'numeric'
+                            })}
+                        </span>
+                    </div>
+                </header>
+
+                <div className="content-body">
+                    <Outlet />
+                </div>
             </main>
+
+            {/* Mobile Toggle Button */}
+            <button
+                className="sidebar-toggle"
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+            >
+                {sidebarOpen ? '✕' : '☰'}
+            </button>
         </div>
     );
 }

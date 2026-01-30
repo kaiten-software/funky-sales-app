@@ -1,67 +1,105 @@
+/* Reports - Clean Professional Style */
+
 .reports {
-    animation: fadeIn 0.5s ease-out;
+    animation: fadeIn 0.2s ease-out;
 }
 
-.reports-header {
-    text-align: center;
-    margin-bottom: var(--spacing-2xl);
+/* Filters */
+.filters-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: var(--space-4);
+    margin-bottom: var(--space-5);
 }
 
-.reports-header h1 {
-    margin-bottom: var(--spacing-sm);
+.filters-row {
+    display: flex;
+    gap: var(--space-3);
+    align-items: flex-end;
+    flex-wrap: wrap;
 }
 
-.reports-header p {
-    color: var(--text-tertiary);
-    font-size: 1.125rem;
+.filter-item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    min-width: 160px;
 }
 
-.filters-section {
-    padding: var(--spacing-xl);
-    margin-bottom: var(--spacing-xl);
+.filter-item .form-select,
+.filter-item .form-input {
+    height: 36px;
 }
 
-.filters-section h3 {
-    margin-bottom: var(--spacing-lg);
+.filter-action {
+    min-width: auto;
 }
 
-.filters-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: var(--spacing-md);
-    align-items: end;
+.filter-action .btn {
+    height: 36px;
 }
 
-.charts-section {
+/* Charts */
+.charts-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-    gap: var(--spacing-xl);
-    margin-bottom: var(--spacing-xl);
+    gap: var(--space-4);
+    margin-bottom: var(--space-5);
 }
 
 .chart-card {
-    padding: var(--spacing-xl);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: var(--space-4);
 }
 
 .chart-card h3 {
-    margin-bottom: var(--spacing-lg);
+    font-size: var(--text-sm);
+    font-weight: 600;
     color: var(--text-primary);
+    margin-bottom: var(--space-4);
 }
 
-.table-section {
-    padding: var(--spacing-xl);
+/* Table Card */
+.table-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: var(--space-4);
 }
 
-.table-section h3 {
-    margin-bottom: var(--spacing-lg);
+.table-card h3 {
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: var(--space-3);
 }
 
+.table-card .table-container {
+    background: transparent;
+    border: none;
+}
+
+/* Amount */
+.amount-cell {
+    font-weight: 600;
+    color: var(--success);
+}
+
+/* Responsive */
 @media (max-width: 768px) {
-    .charts-section {
+    .charts-grid {
         grid-template-columns: 1fr;
     }
 
-    .filters-grid {
-        grid-template-columns: 1fr;
+    .filters-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .filter-item {
+        min-width: 100%;
     }
 }

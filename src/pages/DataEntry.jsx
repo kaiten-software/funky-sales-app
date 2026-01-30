@@ -14,18 +14,38 @@ function DataEntry() {
     const [attachments, setAttachments] = useState({});
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+    const [success, setSuccess] = useState(false);
+
+    // Toast state
+    const [toast, setToast] = useState({ show: false, message: '', type: 'error' });
 
     useEffect(() => {
         fetchUserPOS();
         fetchSalesTypes();
     }, []);
 
+    // Auto-hide toast after 4 seconds
+    useEffect(() => {
+        if (toast.show) {
+            const timer = setTimeout(() => {
+                setToast({ ...toast, show: false });
+            }, 4000);
+            return () => clearTimeout(timer);
+        }
+    }, [toast.show]);
+
+    const showToast = (message, type = 'error') => {
+        setToast({ show: true, message, type });
+    };
+
+    const closeToast = () => {
+        setToast({ ...toast, show: false });
+    };
+
     const fetchUserPOS = async () => {
         try {
             const response = await axios.get('/pos/user-pos');
             setUserPOSList(response.data);
-
-            // Auto-select if only one POS
             if (response.data.length === 1) {
                 setSelectedPOS(response.data[0]);
                 setStep(2);
@@ -39,8 +59,6 @@ function DataEntry() {
         try {
             const response = await axios.get('/sales-types/active');
             setSalesTypes(response.data);
-
-            // Initialize entries with 0 for all types
             const initialEntries = {};
             response.data.forEach(type => {
                 initialEntries[type.id] = '';
@@ -57,42 +75,56 @@ function DataEntry() {
     };
 
     const handleAmountChange = (typeId, value) => {
-        setEntries(prev => ({
-            ...prev,
-            [typeId]: value
-        }));
+        setEntries(prev => ({ ...prev, [typeId]: value }));
     };
 
     const handleFileChange = (typeId, file) => {
-        setAttachments(prev => ({
-            ...prev,
-            [typeId]: file
-        }));
+        setAttachments(prev => ({ ...prev, [typeId]: file }));
     };
 
-    const validateForm = () => {
+    // Validate before going to step 3
+    const validateBeforeContinue = () => {
         // Check all amounts are filled
+        const missingAmounts = [];
         for (const type of salesTypes) {
-            if (entries[type.id] === '' || entries[type.id] === null) {
-                alert(`Please enter amount for ${type.name} (enter 0 if no sales)`);
-                return false;
+            if (entries[type.id] === '' || entries[type.id] === null || entries[type.id] === undefined) {
+                missingAmounts.push(type.name);
             }
         }
 
+        if (missingAmounts.length > 0) {
+            if (missingAmounts.length === salesTypes.length) {
+                showToast('Please enter amounts for all sales types (enter 0 if no sales)', 'error');
+            } else {
+                showToast(`Please enter amount for: ${missingAmounts.join(', ')}`, 'error');
+            }
+            return false;
+        }
+
         // Check required attachments
+        const missingAttachments = [];
         for (const type of salesTypes) {
             if (type.attachment_required && !attachments[type.id]) {
-                alert(`Attachment is required for ${type.name}`);
-                return false;
+                missingAttachments.push(type.name);
             }
+        }
+
+        if (missingAttachments.length > 0) {
+            showToast(`Attachment required for: ${missingAttachments.join(', ')}`, 'error');
+            return false;
         }
 
         return true;
     };
 
-    const handleSubmit = async () => {
-        if (!validateForm()) return;
+    const handleContinue = () => {
+        if (validateBeforeContinue()) {
+            setStep(3);
+        }
+    };
 
+    const handleSubmit = async () => {
+        if (!validateBeforeContinue()) return;
         setSubmitting(true);
 
         try {
@@ -101,7 +133,6 @@ function DataEntry() {
             formData.append('entry_date', selectedDate);
             formData.append('entries', JSON.stringify(entries));
 
-            // Append files
             Object.keys(attachments).forEach(typeId => {
                 if (attachments[typeId]) {
                     formData.append(`attachment_${typeId}`, attachments[typeId]);
@@ -109,100 +140,107 @@ function DataEntry() {
             });
 
             await axios.post('/sales-entries/submit', formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                },
+                headers: { 'Content-Type': 'multipart/form-data' },
             });
 
-            alert('Sales data submitted successfully!');
-
-            // Reset form
-            setStep(1);
-            setSelectedPOS(null);
-            setEntries({});
-            setAttachments({});
-            fetchSalesTypes(); // Reinitialize entries
+            setSuccess(true);
+            setTimeout(() => {
+                setSuccess(false);
+                setStep(1);
+                setSelectedPOS(null);
+                setEntries({});
+                setAttachments({});
+                fetchSalesTypes();
+            }, 2000);
 
         } catch (error) {
             console.error('Error submitting data:', error);
-            alert(error.response?.data?.message || 'Failed to submit data');
+            showToast(error.response?.data?.message || 'Failed to submit data', 'error');
         } finally {
             setSubmitting(false);
         }
     };
 
     const formatCurrency = (value) => {
-        if (!value) return '';
+        if (!value) return '0';
         return new Intl.NumberFormat('en-IN').format(value);
     };
 
-    const getTodayIST = () => {
-        const today = new Date();
-        return today.toISOString().split('T')[0];
-    };
-
+    const getTodayIST = () => new Date().toISOString().split('T')[0];
     const canEditDate = user?.role !== 'regular_user';
+    const totalAmount = Object.values(entries).reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
+
+    // Success Screen
+    if (success) {
+        return (
+            <div className="data-entry">
+                <div className="success-screen">
+                    <div className="success-icon">✓</div>
+                    <h2>Submitted Successfully</h2>
+                    <p>Your sales data has been recorded</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="data-entry">
-            <div className="data-entry-header">
-                <h1>📝 Enter Sales Data</h1>
-                <p>Submit your daily sales information</p>
-            </div>
+            {/* Toast Notification */}
+            {toast.show && (
+                <div className={`toast toast-${toast.type}`}>
+                    <div className="toast-content">
+                        <span className="toast-icon">
+                            {toast.type === 'error' ? '⚠️' : toast.type === 'success' ? '✓' : 'ℹ️'}
+                        </span>
+                        <span className="toast-message">{toast.message}</span>
+                    </div>
+                    <button className="toast-close" onClick={closeToast}>×</button>
+                </div>
+            )}
 
-            {/* Progress Steps */}
-            <div className="progress-steps">
-                <div className={`progress-step ${step >= 1 ? 'active' : ''} ${step > 1 ? 'completed' : ''}`}>
-                    <div className="step-number">1</div>
-                    <div className="step-label">Select POS</div>
+            {/* Header with Progress */}
+            <div className="entry-header-bar">
+                <div className="entry-title">
+                    <h1>Sales Entry</h1>
                 </div>
-                <div className="progress-line"></div>
-                <div className={`progress-step ${step >= 2 ? 'active' : ''} ${step > 2 ? 'completed' : ''}`}>
-                    <div className="step-number">2</div>
-                    <div className="step-label">Enter Data</div>
-                </div>
-                <div className="progress-line"></div>
-                <div className={`progress-step ${step >= 3 ? 'active' : ''}`}>
-                    <div className="step-number">3</div>
-                    <div className="step-label">Review & Submit</div>
+                <div className="progress-indicator">
+                    <span className={`step-dot ${step >= 1 ? 'active' : ''}`}>1</span>
+                    <span className="step-line"></span>
+                    <span className={`step-dot ${step >= 2 ? 'active' : ''}`}>2</span>
+                    <span className="step-line"></span>
+                    <span className={`step-dot ${step >= 3 ? 'active' : ''}`}>3</span>
                 </div>
             </div>
 
             {/* Step 1: POS Selection */}
             {step === 1 && (
-                <div className="step-content fade-in">
-                    <h2>Select Point of Sale</h2>
-                    <p className="step-description">Choose the POS terminal for which you want to enter sales data</p>
+                <div className="step-panel">
+                    <div className="step-header">
+                        <h2>Select POS Terminal</h2>
+                        <p>Choose the terminal you want to enter sales for</p>
+                    </div>
 
-                    <div className="pos-grid">
+                    <div className="pos-list">
                         {userPOSList.map(pos => (
-                            <div
+                            <button
                                 key={pos.id}
-                                className="pos-card glass-card"
+                                className="pos-item"
                                 onClick={() => handlePOSSelect(pos)}
                             >
-                                <div className="pos-icon">🏪</div>
-                                <h3>{pos.name}</h3>
-                                <div className="pos-details">
-                                    <div className="pos-detail">
-                                        <span className="label">Location:</span>
-                                        <span className="value">{pos.location_name}</span>
-                                    </div>
-                                    <div className="pos-detail">
-                                        <span className="label">City:</span>
-                                        <span className="value">{pos.city_name}</span>
-                                    </div>
+                                <div className="pos-main">
+                                    <span className="pos-name">{pos.name}</span>
+                                    <span className="pos-location">{pos.location_name}, {pos.city_name}</span>
                                 </div>
-                                <div className="pos-arrow">→</div>
-                            </div>
+                                <span className="pos-arrow">›</span>
+                            </button>
                         ))}
                     </div>
 
                     {userPOSList.length === 0 && (
                         <div className="empty-state">
-                            <div className="empty-icon">📭</div>
-                            <h3>No POS Assigned</h3>
-                            <p>You don't have any POS terminals assigned. Please contact your administrator.</p>
+                            <div className="empty-state-icon">📭</div>
+                            <div className="empty-state-title">No POS Assigned</div>
+                            <div className="empty-state-description">Contact your administrator</div>
                         </div>
                     )}
                 </div>
@@ -210,182 +248,134 @@ function DataEntry() {
 
             {/* Step 2: Data Entry */}
             {step === 2 && (
-                <div className="step-content fade-in">
-                    <div className="entry-header">
-                        <div>
+                <div className="step-panel">
+                    <div className="step-header">
+                        <div className="step-header-main">
                             <h2>Enter Sales Data</h2>
-                            <p className="step-description">
-                                POS: <strong>{selectedPOS?.name}</strong> |
-                                Location: <strong>{selectedPOS?.location_name}</strong>
-                            </p>
+                            <p><strong>{selectedPOS?.name}</strong> · {selectedPOS?.location_name}</p>
                         </div>
                         <button className="btn btn-ghost btn-sm" onClick={() => setStep(1)}>
-                            ← Change POS
+                            Change
                         </button>
                     </div>
 
-                    <div className="date-selector glass-card">
-                        <label htmlFor="entry-date" className="form-label">
-                            📅 Entry Date
-                        </label>
+                    {/* Date Selector */}
+                    <div className="form-row">
+                        <label className="form-label">Entry Date</label>
                         <input
-                            id="entry-date"
                             type="date"
-                            className="form-input"
+                            className="form-input date-input"
                             value={selectedDate}
                             onChange={(e) => setSelectedDate(e.target.value)}
                             max={getTodayIST()}
                             disabled={!canEditDate}
                         />
                         {!canEditDate && (
-                            <p className="date-note">Regular users can only enter data for today's date</p>
+                            <span className="form-hint">You can only enter data for today</span>
                         )}
                     </div>
 
-                    <div className="sales-types-grid">
+                    {/* Sales Types */}
+                    <div className="sales-form">
                         {salesTypes.map(type => (
-                            <div key={type.id} className="sales-type-card glass-card">
-                                <div className="sales-type-header">
-                                    <h3>{type.name}</h3>
+                            <div key={type.id} className={`sales-row ${entries[type.id] !== '' && entries[type.id] !== null && entries[type.id] !== undefined ? 'filled' : ''}`}>
+                                <div className="sales-row-header">
+                                    <span className="sales-type-name">{type.name}</span>
                                     {type.attachment_required && (
-                                        <span className="badge badge-warning">Attachment Required</span>
+                                        <span className="required-badge">Required</span>
                                     )}
                                 </div>
-
-                                <div className="form-group">
-                                    <label className="form-label">Amount (₹)</label>
-                                    <input
-                                        type="number"
-                                        className="form-input"
-                                        placeholder="Enter amount (0 if no sales)"
-                                        value={entries[type.id] || ''}
-                                        onChange={(e) => handleAmountChange(type.id, e.target.value)}
-                                        min="0"
-                                        step="0.01"
-                                    />
-                                </div>
-
-                                {type.attachment_applicable && (
-                                    <div className="form-group">
-                                        <label className="form-label">
-                                            Attachment {type.attachment_required && <span className="required">*</span>}
-                                        </label>
-                                        <div className="file-upload">
+                                <div className="sales-row-inputs">
+                                    <div className="amount-input-group">
+                                        <span className="currency-symbol">₹</span>
+                                        <input
+                                            type="number"
+                                            className="form-input amount-input"
+                                            placeholder="0"
+                                            value={entries[type.id] || ''}
+                                            onChange={(e) => handleAmountChange(type.id, e.target.value)}
+                                            min="0"
+                                        />
+                                    </div>
+                                    {type.attachment_applicable && (
+                                        <div className="file-input-wrapper">
                                             <input
                                                 type="file"
                                                 id={`file-${type.id}`}
-                                                className="file-upload-input"
+                                                className="file-input-hidden"
                                                 accept="image/*,.pdf"
                                                 onChange={(e) => handleFileChange(type.id, e.target.files[0])}
                                             />
-                                            <label htmlFor={`file-${type.id}`} className="file-upload-label">
-                                                <span>📎</span>
-                                                <span>
-                                                    {attachments[type.id]
-                                                        ? attachments[type.id].name
-                                                        : 'Choose file or drag here'}
-                                                </span>
+                                            <label htmlFor={`file-${type.id}`} className={`file-btn ${attachments[type.id] ? 'has-file' : ''}`}>
+                                                {attachments[type.id] ? '✓' : '📎'}
                                             </label>
                                         </div>
-                                    </div>
-                                )}
+                                    )}
+                                </div>
                             </div>
                         ))}
                     </div>
 
-                    <div className="entry-actions">
-                        <button className="btn btn-ghost" onClick={() => setStep(1)}>
-                            ← Back
-                        </button>
-                        <button className="btn btn-primary btn-lg" onClick={() => setStep(3)}>
-                            Review & Submit →
-                        </button>
+                    <div className="step-footer">
+                        <button className="btn btn-secondary" onClick={() => setStep(1)}>Back</button>
+                        <button className="btn btn-primary" onClick={handleContinue}>Continue</button>
                     </div>
                 </div>
             )}
 
             {/* Step 3: Review */}
             {step === 3 && (
-                <div className="step-content fade-in">
-                    <h2>Review Your Submission</h2>
-                    <p className="step-description">Please verify all information before submitting</p>
+                <div className="step-panel">
+                    <div className="step-header">
+                        <h2>Review & Submit</h2>
+                        <p>Verify your entry before submitting</p>
+                    </div>
 
-                    <div className="review-section glass-card">
-                        <h3>📋 Submission Details</h3>
-                        <div className="review-grid">
-                            <div className="review-item">
-                                <span className="review-label">POS:</span>
+                    <div className="review-card">
+                        <div className="review-info">
+                            <div className="review-info-row">
+                                <span className="review-label">POS Terminal</span>
                                 <span className="review-value">{selectedPOS?.name}</span>
                             </div>
-                            <div className="review-item">
-                                <span className="review-label">Location:</span>
+                            <div className="review-info-row">
+                                <span className="review-label">Location</span>
                                 <span className="review-value">{selectedPOS?.location_name}</span>
                             </div>
-                            <div className="review-item">
-                                <span className="review-label">City:</span>
-                                <span className="review-value">{selectedPOS?.city_name}</span>
-                            </div>
-                            <div className="review-item">
-                                <span className="review-label">Date:</span>
+                            <div className="review-info-row">
+                                <span className="review-label">Date</span>
                                 <span className="review-value">
                                     {new Date(selectedDate).toLocaleDateString('en-IN', {
-                                        day: 'numeric',
-                                        month: 'long',
-                                        year: 'numeric'
+                                        day: 'numeric', month: 'short', year: 'numeric'
                                     })}
                                 </span>
                             </div>
                         </div>
-                    </div>
 
-                    <div className="review-section glass-card">
-                        <h3>💰 Sales Breakdown</h3>
-                        <div className="review-table">
+                        <div className="review-divider"></div>
+
+                        <div className="review-sales">
                             {salesTypes.map(type => (
-                                <div key={type.id} className="review-row">
-                                    <span className="review-type">{type.name}</span>
-                                    <span className="review-amount">
-                                        ₹{formatCurrency(entries[type.id] || 0)}
-                                    </span>
-                                    {attachments[type.id] && (
-                                        <span className="review-attachment">
-                                            📎 {attachments[type.id].name}
-                                        </span>
-                                    )}
+                                <div key={type.id} className="review-sales-row">
+                                    <span className="review-sales-name">{type.name}</span>
+                                    <span className="review-sales-amount">₹{formatCurrency(entries[type.id])}</span>
                                 </div>
                             ))}
-                            <div className="review-row review-total">
-                                <span className="review-type"><strong>Total</strong></span>
-                                <span className="review-amount">
-                                    <strong>
-                                        ₹{formatCurrency(
-                                            Object.values(entries).reduce((sum, val) => sum + (parseFloat(val) || 0), 0)
-                                        )}
-                                    </strong>
-                                </span>
-                            </div>
+                        </div>
+
+                        <div className="review-total">
+                            <span>Total</span>
+                            <span className="review-total-amount">₹{formatCurrency(totalAmount)}</span>
                         </div>
                     </div>
 
-                    <div className="entry-actions">
-                        <button className="btn btn-ghost" onClick={() => setStep(2)}>
-                            ← Edit
-                        </button>
+                    <div className="step-footer">
+                        <button className="btn btn-secondary" onClick={() => setStep(2)}>Edit</button>
                         <button
-                            className="btn btn-success btn-lg"
+                            className="btn btn-success"
                             onClick={handleSubmit}
                             disabled={submitting}
                         >
-                            {submitting ? (
-                                <>
-                                    <div className="loading-spinner" style={{ width: '20px', height: '20px', borderWidth: '2px' }}></div>
-                                    <span>Submitting...</span>
-                                </>
-                            ) : (
-                                <>
-                                    <span>✓ Submit Data</span>
-                                </>
-                            )}
+                            {submitting ? 'Submitting...' : 'Submit Entry'}
                         </button>
                     </div>
                 </div>
